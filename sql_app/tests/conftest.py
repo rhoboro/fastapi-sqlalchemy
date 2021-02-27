@@ -1,7 +1,9 @@
+from uuid import uuid4
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, scoped_session, sessionmaker
 from sqlalchemy.orm.session import close_all_sessions
 
 from sql_app.main import app, get_db
@@ -20,9 +22,13 @@ def test_db():
     engine = create_engine("sqlite:///./sql_app_test.db", connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
 
-    TestSessionLocal = sessionmaker(
-        class_=TestingSession, autocommit=False, autoflush=False, bind=engine
+    # テストケースごとに異なるスコープを持たせる
+    function_scope = uuid4().hex
+    TestSessionLocal = scoped_session(
+        sessionmaker(class_=TestingSession, autocommit=False, autoflush=False, bind=engine),
+        scopefunc=lambda: function_scope,
     )
+    Base.query = TestSessionLocal.query_property()
 
     # sql_app/main.py の get_db() を差し替える
     # https://fastapi.tiangolo.com/advanced/testing-dependencies/
@@ -42,5 +48,6 @@ def test_db():
 
     # 後処理
     TestSessionLocal().rollback()
+    TestSessionLocal.remove()
     close_all_sessions()
     engine.dispose()

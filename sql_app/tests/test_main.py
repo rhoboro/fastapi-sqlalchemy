@@ -6,6 +6,12 @@ from sql_app.models import User
 client = TestClient(app)
 
 
+def test_read_users_empty():
+    response = client.get("/users/")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
 def test_read_users(test_db):
     # データを用意
     user1 = User(email="user1@example.com", hashed_password="unsecurepass")
